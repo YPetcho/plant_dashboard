@@ -42,6 +42,9 @@
       Trash2: (props) => <Icon paths='<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>' {...props} />,
       LayoutGrid: (props) => <Icon paths='<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>' {...props} />,
       LineChartIcon: (props) => <Icon paths='<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>' {...props} />,
+      Download: (props) => <Icon paths='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' {...props} />,
+      Upload: (props) => <Icon paths='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>' {...props} />,
+      Save: (props) => <Icon paths='<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>' {...props} />,
     };
 
     // --- Components ---
@@ -257,20 +260,57 @@
       const [lastFetch, setLastFetch] = useState(null);
 
       const [configuredPlants, setConfiguredPlants] = useState([
-        { id: 'sensor_1', name: 'Monstera Deliciosa' },
-        { id: 'sensor_2', name: 'Fiddle Leaf Fig' },
-        { id: 'sensor_3', name: 'Snake Plant' },
-        { id: 'sensor_4', name: 'Pothos' }
+        { id: '1', name: 'Monstera Deliciosa' },
+        { id: '2', name: 'Fiddle Leaf Fig' },
+        { id: '3', name: 'Snake Plant' },
+        { id: '4', name: 'Pothos' }
       ]);
       const [newPlantId, setNewPlantId] = useState('');
       const [newPlantName, setNewPlantName] = useState('');
+
+      // Attempt to load from localStorage first, then plant_config.json, then defaults
+      useEffect(() => {
+        const loadDefaultConfig = async () => {
+          // 1. Check browser local storage (auto-saves)
+          const cached = localStorage.getItem('plantConfig');
+          if (cached) {
+            try {
+              const data = JSON.parse(cached);
+              if (Array.isArray(data) && data.length > 0) {
+                setConfiguredPlants(data);
+                return;
+              }
+            } catch(e) { console.error("Error parsing local storage config"); }
+          }
+
+          // 2. Check for JSON file in repository
+          try {
+            const response = await fetch('plant_config.json');
+            if (response.ok) {
+              const data = await response.json();
+              if (Array.isArray(data)) {
+                setConfiguredPlants(data);
+                console.log("Successfully loaded plant_config.json");
+              }
+            }
+          } catch (err) {
+            console.log("No local plant_config.json found, using defaults.");
+          }
+        };
+        loadDefaultConfig();
+      }, []);
+
+      // Auto-save to browser local storage whenever plants change
+      useEffect(() => {
+        localStorage.setItem('plantConfig', JSON.stringify(configuredPlants));
+      }, [configuredPlants]);
 
       // Initialize with user's specific defaults
       const [config, setConfig] = useState({
         url: 'https://hbrujdruzrjaaqbpjucp.supabase.co/',
         anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhicnVqZHJ1enJqYWFxYnBqdWNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNDQ3ODMsImV4cCI6MjA4ODgyMDc4M30.ypjUq1IL3BdtrUW7OGE2HbKbY3t6O1c7xGShJF873PY',
         tableName: 'sensor_data',
-        colId: 'id',
+        colId: 'plant_id',
         colMoisture: 'moisture',
         colTemp: 'temperature',
         colDate: 'created_at',
@@ -455,6 +495,67 @@
         setConfiguredPlants(prev => prev.filter(p => p.id !== idToRemove));
       };
 
+      const exportConfig = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(configuredPlants, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "plant_config.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+      };
+
+      const saveToLocalFile = async () => {
+        try {
+          const dataStr = JSON.stringify(configuredPlants, null, 2);
+          // Use File System Access API if available (Modern browsers)
+          if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: 'plant_config.json',
+              types: [{
+                description: 'JSON File',
+                accept: {'application/json': ['.json']},
+              }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(dataStr);
+            await writable.close();
+          } else {
+            // Fallback for older browsers
+            exportConfig();
+          }
+        } catch (err) {
+          // Ignore abort errors (user cancelled picker)
+          if (err.name !== 'AbortError') {
+            console.error(err);
+            alert('Failed to save file. Falling back to standard download.');
+            exportConfig();
+          }
+        }
+      };
+
+      const importConfig = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const json = JSON.parse(e.target.result);
+              if (Array.isArray(json)) {
+                setConfiguredPlants(json);
+              } else {
+                alert("Invalid configuration file format. Expected an array.");
+              }
+            } catch (err) {
+              alert("Error parsing JSON file.");
+            }
+          };
+          reader.readAsText(file);
+        }
+        // Reset input so the same file can be selected again if needed
+        event.target.value = '';
+      };
+
       return (
         <div className="min-h-screen p-4 md:p-8">
           
@@ -593,9 +694,20 @@
 
                 {/* Right Column: Plant Registry */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Icons.Leaf className="w-5 h-5 text-emerald-500" />
-                    <h2 className="text-lg font-bold">Registered Plants</h2>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-3">
+                      <Icons.Leaf className="w-5 h-5 text-emerald-500" />
+                      <h2 className="text-lg font-bold">Registered Plants</h2>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveToLocalFile} title="Save config to JSON" className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors flex items-center gap-1">
+                        <Icons.Save className="w-5 h-5" />
+                      </button>
+                      <label title="Load config from JSON" className="p-1.5 cursor-pointer text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
+                        <Icons.Upload className="w-5 h-5" />
+                        <input type="file" accept=".json" onChange={importConfig} className="hidden" />
+                      </label>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-500 mb-4">Map your sensor IDs to friendly plant names.</p>
                   
