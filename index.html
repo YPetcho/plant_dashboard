@@ -91,19 +91,38 @@
       const pathString = `M ${points[0]} L ${points.join(' ')}`;
       const fillString = `M ${points[0].split(',')[0]},100 L ${points.join(' ')} L ${points[points.length-1].split(',')[0]},100 Z`;
 
+      // Format timestamp based on time range (hours/mins for <= 24h, dates for > 24h)
+      const formatTimeAxis = (timestamp) => {
+        const d = new Date(timestamp);
+        if (timeRange <= 24 * 60 * 60 * 1000) {
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+          return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+      };
+
       return (
-        <div className="relative w-full h-48 mt-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl overflow-hidden">
-          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-1">
-            <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
-            <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
-            <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+        <div className="relative w-full mt-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl overflow-hidden flex flex-col">
+          <div className="relative w-full h-48">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-1">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+            </div>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
+              <path d={fillString} fill={fillColor} />
+              <path d={pathString} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+            </svg>
+            <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">100%</div>
+            <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">0%</div>
           </div>
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
-            <path d={fillString} fill={fillColor} />
-            <path d={pathString} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-          </svg>
-          <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium">100%</div>
-          <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium">0%</div>
+          
+          {/* X-Axis Time Labels */}
+          <div className="flex justify-between items-center px-2 pb-2 pt-1 text-[10px] text-slate-400 font-medium border-t border-slate-200/50 dark:border-slate-700/50">
+            <span>{formatTimeAxis(minTime)}</span>
+            <span>{formatTimeAxis(minTime + timeRange / 2)}</span>
+            <span>{formatTimeAxis(maxTime)}</span>
+          </div>
         </div>
       );
     };
@@ -247,7 +266,7 @@
     // --- Main Application ---
 
     function App() {
-      const [isSimulated, setIsSimulated] = useState(true);
+      const [isSimulated, setIsSimulated] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const [activeTab, setActiveTab] = useState('dashboard');
       const [timeScale, setTimeScale] = useState('24h'); 
