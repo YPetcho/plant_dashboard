@@ -68,7 +68,10 @@
       );
     };
 
-    const SimpleLineChart = ({ data, color = "#10b981", fillColor = "rgba(16, 185, 129, 0.15)" }) => {
+    const SimpleLineChart = ({ data }) => {
+      // Create a unique ID for the gradient so multiple charts don't clash
+      const chartId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
+
       if (!data || data.length < 2) {
         return (
           <div className="w-full h-48 flex items-center justify-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
@@ -110,8 +113,31 @@
               <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
             </div>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
-              <path d={fillString} fill={fillColor} />
-              <path d={pathString} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+              <defs>
+                {/* Y=0 is 100% moisture (top), Y=100 is 0% moisture (bottom).
+                  > 80% moisture is top 20% (0-20 offset) -> Blue
+                  30-80% moisture is middle 50% (20-70 offset) -> Green
+                  < 30% moisture is bottom 30% (70-100 offset) -> Red
+                */}
+                <linearGradient id={`line-gradient-${chartId}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="19.9%" stopColor="#3b82f6" />
+                  <stop offset="20.1%" stopColor="#10b981" />
+                  <stop offset="69.9%" stopColor="#10b981" />
+                  <stop offset="70.1%" stopColor="#ef4444" />
+                  <stop offset="100%" stopColor="#ef4444" />
+                </linearGradient>
+                <linearGradient id={`fill-gradient-${chartId}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="rgba(59, 130, 246, 0.15)" />
+                  <stop offset="19.9%" stopColor="rgba(59, 130, 246, 0.15)" />
+                  <stop offset="20.1%" stopColor="rgba(16, 185, 129, 0.15)" />
+                  <stop offset="69.9%" stopColor="rgba(16, 185, 129, 0.15)" />
+                  <stop offset="70.1%" stopColor="rgba(239, 68, 68, 0.15)" />
+                  <stop offset="100%" stopColor="rgba(239, 68, 68, 0.15)" />
+                </linearGradient>
+              </defs>
+              <path d={fillString} fill={`url(#fill-gradient-${chartId})`} />
+              <path d={pathString} fill="none" stroke={`url(#line-gradient-${chartId})`} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
             </svg>
             <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">100%</div>
             <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">0%</div>
@@ -128,20 +154,7 @@
     };
 
     const GraphCard = ({ plantConfig, history }) => {
-      let statusColor = '#10b981'; 
-      let fillColor = 'rgba(16, 185, 129, 0.15)';
-      
       const latest = history && history.length > 0 ? history[history.length - 1] : null;
-      
-      if (latest) {
-        if (latest.moisture < 30) {
-          statusColor = '#ef4444'; 
-          fillColor = 'rgba(239, 68, 68, 0.15)';
-        } else if (latest.moisture > 80) {
-          statusColor = '#3b82f6'; 
-          fillColor = 'rgba(59, 130, 246, 0.15)';
-        }
-      }
 
       return (
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md">
@@ -157,7 +170,7 @@
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Moisture History</p>
-          <SimpleLineChart data={history} color={statusColor} fillColor={fillColor} />
+          <SimpleLineChart data={history} />
         </div>
       );
     };
