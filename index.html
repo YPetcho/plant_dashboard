@@ -68,36 +68,54 @@
       );
     };
 
-    const SimpleLineChart = ({ data }) => {
+    const SimpleLineChart = ({ data, timeRangeMs }) => {
       // Create a unique ID for the gradient so multiple charts don't clash
       const chartId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
 
-      if (!data || data.length < 2) {
-        return (
-          <div className="w-full h-48 flex items-center justify-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
-            Not enough data
-          </div>
-        );
-      }
+      // Lock the time scale to exactly NOW and backwards
+      const maxTime = Date.now();
+      const minTime = maxTime - timeRangeMs;
 
-      const sortedData = [...data].sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
-      const minTime = new Date(sortedData[0].updated_at).getTime();
-      const maxTime = new Date(sortedData[sortedData.length - 1].updated_at).getTime();
-      const timeRange = maxTime - minTime || 1; 
-
-      const points = sortedData.map(d => {
-        const x = ((new Date(d.updated_at).getTime() - minTime) / timeRange) * 100;
-        const y = 100 - Math.max(0, Math.min(100, d.moisture)); 
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      // Filter data to only points within our exact time window
+      const validData = (data || []).filter(d => {
+        const t = new Date(d.updated_at).getTime();
+        return t >= minTime && t <= maxTime;
       });
 
-      const pathString = `M ${points[0]} L ${points.join(' ')}`;
-      const fillString = `M ${points[0].split(',')[0]},100 L ${points.join(' ')} L ${points[points.length-1].split(',')[0]},100 Z`;
+      const sortedData = [...validData].sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
+
+      // Map to exact X (time percentage) and Y (moisture percentage) coordinates
+      const points = sortedData.map(d => {
+        const t = new Date(d.updated_at).getTime();
+        const x = Math.max(0, Math.min(100, ((t - minTime) / timeRangeMs) * 100));
+        const y = 100 - Math.max(0, Math.min(100, d.moisture)); 
+        return { x, y, val: d.moisture };
+      });
+
+      let pathString = '';
+      let fillString = '';
+      let stops = [];
+
+      if (points.length >= 2) {
+        pathString = `M ${points[0].x},${points[0].y} ` + points.map(p => `L ${p.x},${p.y}`).join(' ');
+        fillString = `M ${points[0].x},100 L ${points[0].x},${points[0].y} ` + points.map(p => `L ${p.x},${p.y}`).join(' ') + ` L ${points[points.length-1].x},100 Z`;
+        
+        // Generate vertical color blocks based on each point's X coordinate and Value
+        stops = points.map(p => {
+          const isDry = p.val < 30;
+          const isWet = p.val > 80;
+          return {
+            offset: `${p.x}%`,
+            lineColor: isDry ? '#ef4444' : isWet ? '#3b82f6' : '#10b981',
+            fillColor: isDry ? 'rgba(239, 68, 68, 0.25)' : isWet ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)'
+          };
+        });
+      }
 
       // Format timestamp based on time range (hours/mins for <= 24h, dates for > 24h)
       const formatTimeAxis = (timestamp) => {
         const d = new Date(timestamp);
-        if (timeRange <= 24 * 60 * 60 * 1000) {
+        if (timeRangeMs <= 24 * 60 * 60 * 1000) {
           return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } else {
           return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -112,48 +130,42 @@
               <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
               <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
             </div>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
-              <defs>
-                {/* Y=0 is 100% moisture (top), Y=100 is 0% moisture (bottom).
-                  > 80% moisture is top 20% (0-20 offset) -> Blue
-                  30-80% moisture is middle 50% (20-70 offset) -> Green
-                  < 30% moisture is bottom 30% (70-100 offset) -> Red
-                */}
-                <linearGradient id={`line-gradient-${chartId}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="19.9%" stopColor="#3b82f6" />
-                  <stop offset="20.1%" stopColor="#10b981" />
-                  <stop offset="69.9%" stopColor="#10b981" />
-                  <stop offset="70.1%" stopColor="#ef4444" />
-                  <stop offset="100%" stopColor="#ef4444" />
-                </linearGradient>
-                <linearGradient id={`fill-gradient-${chartId}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="rgba(59, 130, 246, 0.15)" />
-                  <stop offset="19.9%" stopColor="rgba(59, 130, 246, 0.15)" />
-                  <stop offset="20.1%" stopColor="rgba(16, 185, 129, 0.15)" />
-                  <stop offset="69.9%" stopColor="rgba(16, 185, 129, 0.15)" />
-                  <stop offset="70.1%" stopColor="rgba(239, 68, 68, 0.15)" />
-                  <stop offset="100%" stopColor="rgba(239, 68, 68, 0.15)" />
-                </linearGradient>
-              </defs>
-              <path d={fillString} fill={`url(#fill-gradient-${chartId})`} />
-              <path d={pathString} fill="none" stroke={`url(#line-gradient-${chartId})`} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-            </svg>
+            
+            {points.length >= 2 ? (
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
+                <defs>
+                  {/* X-axis gradient creating vertical color blocks based on time progression */}
+                  <linearGradient id={`line-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+                    {stops.map((s, i) => <stop key={i} offset={s.offset} stopColor={s.lineColor} />)}
+                  </linearGradient>
+                  <linearGradient id={`fill-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+                    {stops.map((s, i) => <stop key={i} offset={s.offset} stopColor={s.fillColor} />)}
+                  </linearGradient>
+                </defs>
+                <path d={fillString} fill={`url(#fill-gradient-${chartId})`} />
+                <path d={pathString} fill="none" stroke={`url(#line-gradient-${chartId})`} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 font-medium">
+                No data for this time period (NA)
+              </div>
+            )}
+            
             <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">100%</div>
             <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded">0%</div>
           </div>
           
-          {/* X-Axis Time Labels */}
+          {/* X-Axis Time Labels (Fixed to current time scale) */}
           <div className="flex justify-between items-center px-2 pb-2 pt-1 text-[10px] text-slate-400 font-medium border-t border-slate-200/50 dark:border-slate-700/50">
             <span>{formatTimeAxis(minTime)}</span>
-            <span>{formatTimeAxis(minTime + timeRange / 2)}</span>
-            <span>{formatTimeAxis(maxTime)}</span>
+            <span>{formatTimeAxis(minTime + timeRangeMs / 2)}</span>
+            <span>Now</span>
           </div>
         </div>
       );
     };
 
-    const GraphCard = ({ plantConfig, history }) => {
+    const GraphCard = ({ plantConfig, history, timeRangeMs }) => {
       const latest = history && history.length > 0 ? history[history.length - 1] : null;
 
       return (
@@ -170,7 +182,7 @@
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Moisture History</p>
-          <SimpleLineChart data={history} />
+          <SimpleLineChart data={history} timeRangeMs={timeRangeMs} />
         </div>
       );
     };
@@ -846,6 +858,7 @@
                         key={plantConfig.id}
                         plantConfig={plantConfig}
                         history={history[plantConfig.id] || []}
+                        timeRangeMs={getTimeScaleMs()}
                       />
                     )
                   ))}
