@@ -389,253 +389,6 @@
         }
         setIsSimulated(false);
         setShowSettings(false);
-   
-        }
-      };
-
-      return (
-        <div className="relative w-full mt-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl overflow-hidden flex flex-col">
-          <div className="relative w-full h-48">
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-1">
-              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
-              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
-              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
-            </div>
-            
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
-              <defs>
-                {/* Vertical color blocks spanning left-to-right based on exact values */}
-                <linearGradient id={`line-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
-                  {chartPoints.map((p, i) => <stop key={`l-${i}`} offset={`${p.x}%`} stopColor={getColor(p.val)} />)}
-                </linearGradient>
-                <linearGradient id={`fill-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
-                  {chartPoints.map((p, i) => <stop key={`f-${i}`} offset={`${p.x}%`} stopColor={getFill(p.val)} />)}
-                </linearGradient>
-              </defs>
-              <path d={fillString} fill={`url(#fill-gradient-${chartId})`} />
-              <path d={pathString} fill="none" stroke={`url(#line-gradient-${chartId})`} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-            </svg>
-            
-            <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded shadow-sm">100%</div>
-            <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded shadow-sm">0%</div>
-          </div>
-          
-          <div className="flex justify-between items-center px-2 pb-2 pt-1 text-[10px] text-slate-400 font-medium border-t border-slate-200/50 dark:border-slate-700/50">
-            <span>{formatTimeAxis(minTime)}</span>
-            <span>{formatTimeAxis(minTime + timeRangeMs / 2)}</span>
-            <span>Now</span>
-          </div>
-        </div>
-      );
-    };
-
-    const GraphCard = ({ plantConfig, history, timeRangeMs }) => {
-      const latest = history && history.length > 0 ? history[history.length - 1] : null;
-
-      return (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <Icons.Leaf className="w-5 h-5 text-emerald-500" />
-              {plantConfig.name}
-            </h3>
-            {latest && (
-              <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                {latest.moisture.toFixed(1)}%
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Moisture History</p>
-          <SimpleLineChart data={history} timeRangeMs={timeRangeMs} />
-        </div>
-      );
-    };
-
-    const PlantCard = ({ plantConfig, reading }) => {
-      if (!reading) {
-        return (
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 opacity-70">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <Icons.Leaf className="w-5 h-5 text-slate-400" />
-                  {plantConfig.name}
-                </h3>
-                <p className="text-sm font-medium px-2 py-1 rounded-full mt-2 inline-block bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-                  Waiting for data...
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-center my-6">
-              <CircularProgress value={0} color="text-slate-300" />
-            </div>
-            <div className="text-center text-sm text-slate-500 mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
-              Ensure device ID <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{plantConfig.id}</code> is sending data.
-            </div>
-          </div>
-        );
-      }
-
-      let statusColor = 'text-green-500';
-      let bgColor = 'bg-green-100 dark:bg-green-900/30';
-      let statusText = 'Optimal';
-
-      if (reading.moisture < 30) {
-        statusColor = 'text-red-500';
-        bgColor = 'bg-red-100 dark:bg-red-900/30';
-        statusText = 'Needs Water';
-      } else if (reading.moisture > 80) {
-        statusColor = 'text-blue-500';
-        bgColor = 'bg-blue-100 dark:bg-blue-900/30';
-        statusText = 'Overwatered';
-      }
-
-      const timeAgo = (dateString) => {
-        if (!dateString) return 'Unknown';
-        const date = new Date(dateString);
-        const now = new Date();
-        const seconds = Math.floor((now - date) / 1000);
-        
-        if (seconds < 60) return `${seconds}s ago`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-        return `${Math.floor(seconds / 3600)}h ago`;
-      };
-
-      return (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <Icons.Leaf className="w-5 h-5 text-emerald-500" />
-                {plantConfig.name}
-              </h3>
-              <p className={`text-sm font-medium px-2 py-1 rounded-full mt-2 inline-block ${bgColor} ${statusColor}`}>
-                {statusText}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="flex items-center text-slate-400 text-xs gap-1 justify-end">
-                <Icons.Clock className="w-3 h-3" />
-                <span>{timeAgo(reading.updated_at)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center my-6">
-            <CircularProgress value={reading.moisture} color={statusColor} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-500">
-                <Icons.Droplet className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sensor Value</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">{reading.moisture.toFixed(1)}%</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500">
-                <Icons.Thermometer className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Temp (est)</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">
-                  {reading.temperature ? `${reading.temperature}°C` : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    // --- Main Application ---
-
-    function App() {
-      const [isSimulated, setIsSimulated] = useState(false);
-      const [showSettings, setShowSettings] = useState(false);
-      const [activeTab, setActiveTab] = useState('dashboard');
-      const [timeScale, setTimeScale] = useState('24h'); 
-      
-      const [readings, setReadings] = useState({});
-      const [history, setHistory] = useState({}); 
-      
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
-      const [lastFetch, setLastFetch] = useState(null);
-
-      const [configuredPlants, setConfiguredPlants] = useState([
-        { id: '1', name: 'Monstera Deliciosa' },
-        { id: '2', name: 'Fiddle Leaf Fig' },
-        { id: '3', name: 'Snake Plant' },
-        { id: '4', name: 'Pothos' }
-      ]);
-      const [newPlantId, setNewPlantId] = useState('');
-      const [newPlantName, setNewPlantName] = useState('');
-
-      // Attempt to load from localStorage first, then plant_config.json, then defaults
-      useEffect(() => {
-        const loadDefaultConfig = async () => {
-          // 1. Check browser local storage (auto-saves)
-          const cached = localStorage.getItem('plantConfig');
-          if (cached) {
-            try {
-              const data = JSON.parse(cached);
-              if (Array.isArray(data) && data.length > 0) {
-                setConfiguredPlants(data);
-                return;
-              }
-            } catch(e) { console.error("Error parsing local storage config"); }
-          }
-
-          // 2. Check for JSON file in repository
-          try {
-            const response = await fetch('plant_config.json');
-            if (response.ok) {
-              const data = await response.json();
-              if (Array.isArray(data)) {
-                setConfiguredPlants(data);
-                console.log("Successfully loaded plant_config.json");
-              }
-            }
-          } catch (err) {
-            console.log("No local plant_config.json found, using defaults.");
-          }
-        };
-        loadDefaultConfig();
-      }, []);
-
-      // Auto-save to browser local storage whenever plants change
-      useEffect(() => {
-        localStorage.setItem('plantConfig', JSON.stringify(configuredPlants));
-      }, [configuredPlants]);
-
-      // Initialize with user's specific defaults
-      const [config, setConfig] = useState({
-        url: 'https://hbrujdruzrjaaqbpjucp.supabase.co/',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhicnVqZHJ1enJqYWFxYnBqdWNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNDQ3ODMsImV4cCI6MjA4ODgyMDc4M30.ypjUq1IL3BdtrUW7OGE2HbKbY3t6O1c7xGShJF873PY',
-        tableName: 'sensor_data',
-        colId: 'plant_id',
-        colMoisture: 'moisture',
-        colTemp: 'temperature',
-        colDate: 'created_at',
-        pollingInterval: 5000 
-      });
-
-      const handleConfigChange = (e) => {
-        setConfig({ ...config, [e.target.name]: e.target.value });
-      };
-
-      const connectSupabase = () => {
-        if (!config.url || !config.anonKey || !config.tableName) {
-          setError("Please provide URL, Anon Key, and Table Name.");
-          return;
-        }
-        setIsSimulated(false);
-        setShowSettings(false);
         setError(null);
         fetchSupabaseData();
       };
@@ -663,49 +416,118 @@
         try {
           setLoading(true);
           const cleanUrl = config.url.trim().replace(/\/$/, '');
-          const startTime = new Date(Date.now() - getTimeScaleMs()).toISOString();
           
-          const encodedTime = encodeURIComponent(startTime);
-          const endpoint = `${cleanUrl}/rest/v1/${config.tableName}?select=*&${config.colDate}=gte.${encodedTime}&order=${config.colDate}.desc&limit=10000`;
+          const timeRangeMs = getTimeScaleMs();
+          const maxTime = Date.now();
+          const minTime = maxTime - timeRangeMs;
           
-          const response = await fetch(endpoint, {
+          const encodedStartTime = encodeURIComponent(new Date(minTime).toISOString());
+          const fetchOptions = {
             headers: {
               'apikey': config.anonKey,
               'Authorization': `Bearer ${config.anonKey}`,
               'Content-Type': 'application/json',
               'Prefer': 'return=representation'
             }
-          });
+          };
+
+          const baseEndpoint = `${cleanUrl}/rest/v1/${config.tableName}?select=*`;
+          const recentEndpoint = `${baseEndpoint}&${config.colDate}=gte.${encodedStartTime}&order=${config.colDate}.desc&limit=1000`;
+          
+          const response = await fetch(recentEndpoint, fetchOptions);
 
           if (!response.ok) {
-            throw new Error(`Supabase Error ${response.status}: Please ensure your Table has RLS policies that allow reading, or check your URL/Anon Key.`);
+            throw new Error(`Supabase Error ${response.status}: Check your Table Name, URL, or RLS policies.`);
           }
 
-          const data = await response.json();
-          
+          let allFetchedData = await response.json();
+
+          // If the 1000 row limit truncated our history, fetch properly spaced samples for the missing time.
+          if (allFetchedData.length > 0) {
+            const oldestDateInBatch = parseSupabaseDate(allFetchedData[allFetchedData.length - 1][config.colDate]);
+            
+            // If the oldest record is significantly newer than our start time, we hit the row limit
+            if (oldestDateInBatch > minTime + (timeRangeMs * 0.05)) {
+              console.log("Fetching historical samples to fill graph timeline for all sensors...");
+              const missingDuration = oldestDateInBatch - minTime;
+              const numBuckets = 30; // 30 buckets is plenty for smooth curves and prevents browser network stalling
+              const step = missingDuration / numBuckets;
+              
+              const samplePromises = [];
+              for (let i = 0; i < numBuckets; i++) {
+                const sampleStart = new Date(minTime + (i * step)).toISOString();
+                const sampleEnd = new Date(minTime + ((i + 1) * step)).toISOString();
+                
+                // FIX: limit=50 instead of limit=1 ensures we grab readings for ALL plants in this time slice, not just one!
+                const p = fetch(`${baseEndpoint}&${config.colDate}=gte.${encodeURIComponent(sampleStart)}&${config.colDate}=lt.${encodeURIComponent(sampleEnd)}&order=${config.colDate}.desc&limit=50`, fetchOptions)
+                  .then(res => res.json())
+                  .then(arr => arr.length > 0 ? arr : null) // Return the whole array of 50 rows
+                  .catch(() => null); 
+                  
+                samplePromises.push(p);
+              }
+              
+              const historicalSamples = await Promise.all(samplePromises);
+              historicalSamples.forEach(sampleArray => {
+                if (sampleArray && Array.isArray(sampleArray)) {
+                  allFetchedData.push(...sampleArray); // Merge all plant readings from this bucket
+                }
+              });
+            }
+          }
+
           const newReadings = {};
           const newHistory = {};
 
-          data.forEach(row => {
+          // Group by Plant ID
+          const dataByPlant = {};
+          allFetchedData.forEach(row => {
             const id = String(row[config.colId]);
-            if (id) {
-              const record = {
-                moisture: Number(row[config.colMoisture]) || 0,
-                temperature: row[config.colTemp] ? Number(row[config.colTemp]) : null,
-                updated_at: row[config.colDate]
-              };
-
-              if (!newHistory[id]) newHistory[id] = [];
-              newHistory[id].push(record);
-
-              if (!newReadings[id]) {
-                newReadings[id] = record;
-              }
+            if (id && id !== 'undefined' && id !== 'null') {
+              if (!dataByPlant[id]) dataByPlant[id] = [];
+              dataByPlant[id].push(row);
             }
           });
 
-          Object.keys(newHistory).forEach(id => {
-            newHistory[id].reverse();
+          // Target uniform resolution across the whole chart
+          const TARGET_POINTS = 100;
+          const bucketSizeMs = timeRangeMs / TARGET_POINTS;
+
+          Object.keys(dataByPlant).forEach(id => {
+            const plantData = dataByPlant[id];
+            
+            // 1. Get the absolute latest reading for the dashboard cards
+            const sortedDesc = [...plantData].sort((a, b) => parseSupabaseDate(b[config.colDate]) - parseSupabaseDate(a[config.colDate]));
+            if (sortedDesc.length > 0) {
+              newReadings[id] = {
+                moisture: Number(sortedDesc[0][config.colMoisture]) || 0,
+                temperature: sortedDesc[0][config.colTemp] ? Number(sortedDesc[0][config.colTemp]) : null,
+                updated_at: sortedDesc[0][config.colDate]
+              };
+            }
+
+            // 2. Uniform Downsampling for the graph
+            const uniformBuckets = new Map();
+            
+            plantData.forEach(d => {
+              const t = parseSupabaseDate(d[config.colDate]);
+              if (t >= minTime && t <= maxTime) {
+                const bucketIndex = Math.floor((t - minTime) / bucketSizeMs);
+                // Keep the newest point inside this specific time bucket
+                if (!uniformBuckets.has(bucketIndex) || t > parseSupabaseDate(uniformBuckets.get(bucketIndex)[config.colDate])) {
+                  uniformBuckets.set(bucketIndex, d);
+                }
+              }
+            });
+
+            // Convert map back to array and sort chronologically (oldest to newest)
+            const uniformData = Array.from(uniformBuckets.values()).sort((a, b) => parseSupabaseDate(a[config.colDate]) - parseSupabaseDate(b[config.colDate]));
+
+            newHistory[id] = uniformData.map(row => ({
+              moisture: Number(row[config.colMoisture]) || 0,
+              temperature: row[config.colTemp] ? Number(row[config.colTemp]) : null,
+              updated_at: row[config.colDate]
+            }));
           });
 
           setHistory(newHistory);
@@ -792,20 +614,6 @@
         return () => clearInterval(intervalId);
       }, [isSimulated, fetchSupabaseData, generateSimulatedData, config.pollingInterval]);
 
-      const handleAddPlant = () => {
-        if (newPlantId.trim() && newPlantName.trim()) {
-          if (!configuredPlants.find(p => p.id === newPlantId.trim())) {
-            setConfiguredPlants(prev => [...prev, { id: newPlantId.trim(), name: newPlantName.trim() }]);
-          }
-          setNewPlantId('');
-          setNewPlantName('');
-        }
-      };
-
-      const handleRemovePlant = (idToRemove) => {
-        setConfiguredPlants(prev => prev.filter(p => p.id !== idToRemove));
-      };
-
       const exportConfig = () => {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(configuredPlants, null, 2));
         const downloadAnchorNode = document.createElement('a');
@@ -819,24 +627,18 @@
       const saveToLocalFile = async () => {
         try {
           const dataStr = JSON.stringify(configuredPlants, null, 2);
-          // Use File System Access API if available (Modern browsers)
           if (window.showSaveFilePicker) {
             const handle = await window.showSaveFilePicker({
               suggestedName: 'plant_config.json',
-              types: [{
-                description: 'JSON File',
-                accept: {'application/json': ['.json']},
-              }],
+              types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }],
             });
             const writable = await handle.createWritable();
             await writable.write(dataStr);
             await writable.close();
           } else {
-            // Fallback for older browsers
             exportConfig();
           }
         } catch (err) {
-          // Ignore abort errors (user cancelled picker)
           if (err.name !== 'AbortError') {
             console.error(err);
             alert('Failed to save file. Falling back to standard download.');
@@ -863,14 +665,25 @@
           };
           reader.readAsText(file);
         }
-        // Reset input so the same file can be selected again if needed
         event.target.value = '';
+      };
+
+      const handleAddPlant = () => {
+        if (newPlantId.trim() && newPlantName.trim()) {
+          if (!configuredPlants.find(p => p.id === newPlantId.trim())) {
+            setConfiguredPlants(prev => [...prev, { id: newPlantId.trim(), name: newPlantName.trim() }]);
+          }
+          setNewPlantId('');
+          setNewPlantName('');
+        }
+      };
+
+      const handleRemovePlant = (idToRemove) => {
+        setConfiguredPlants(prev => prev.filter(p => p.id !== idToRemove));
       };
 
       return (
         <div className="min-h-screen p-4 md:p-8">
-          
-          {/* Header */}
           <header className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-4">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
@@ -882,61 +695,34 @@
 
             <div className="flex items-center gap-3">
               <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                isSimulated 
-                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' 
-                  : error 
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                isSimulated ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' 
+                : error ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               }`}>
                 {isSimulated ? <Icons.WifiOff className="w-4 h-4" /> : <Icons.Wifi className="w-4 h-4" />}
                 {isSimulated ? 'Simulation Mode' : error ? 'Connection Error' : 'Live: Supabase'}
               </div>
               
-              <button 
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm"
-                title="Settings"
-              >
+              <button onClick={() => setShowSettings(!showSettings)} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm" title="Settings">
                 <Icons.Settings className="w-5 h-5 text-slate-600 dark:text-slate-300" />
               </button>
             </div>
           </header>
 
-          {/* Tabs & Controls */}
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div className="flex gap-2 p-1 bg-slate-200/50 dark:bg-slate-800 rounded-xl">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === 'dashboard' 
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-              >
-                <Icons.LayoutGrid className="w-4 h-4" />
-                Dashboard
+              <button onClick={() => setActiveTab('dashboard')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                <Icons.LayoutGrid className="w-4 h-4" /> Dashboard
               </button>
-              <button
-                onClick={() => setActiveTab('graphs')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === 'graphs' 
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-              >
-                <Icons.LineChartIcon className="w-4 h-4" />
-                History Graphs
+              <button onClick={() => setActiveTab('graphs')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'graphs' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                <Icons.LineChartIcon className="w-4 h-4" /> History Graphs
               </button>
             </div>
 
             {activeTab === 'graphs' && (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-500 font-medium">Time Scale:</span>
-                <select 
-                  value={timeScale}
-                  onChange={(e) => setTimeScale(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500"
-                >
+                <select value={timeScale} onChange={(e) => setTimeScale(e.target.value)} className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500">
                   <option value="5m">Last 5 Minutes</option>
                   <option value="1h">Last 1 Hour</option>
                   <option value="24h">Last 24 Hours</option>
@@ -947,18 +733,14 @@
             )}
           </div>
 
-          {/* Settings Modal / Panel */}
           {showSettings && (
             <div className="max-w-6xl mx-auto mb-8 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                
-                {/* Left Column: Database Config */}
                 <div>
                   <div className="flex items-center gap-3 mb-6">
                     <Icons.Database className="w-6 h-6 text-indigo-500" />
                     <h2 className="text-xl font-bold">Connect to Supabase</h2>
                   </div>
-                  
                   <div className="space-y-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Supabase Project URL</label>
@@ -972,7 +754,6 @@
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Table Name</label>
                       <input type="text" name="tableName" value={config.tableName} onChange={handleConfigChange} placeholder="sensor_data" className="w-full px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none" />
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                       <h3 className="col-span-2 text-sm font-bold text-slate-600 dark:text-slate-400">Column Mapping</h3>
                       <div>
@@ -993,7 +774,6 @@
                       </div>
                     </div>
                   </div>
-
                   <div className="flex flex-wrap gap-4 mt-8">
                     <button onClick={connectSupabase} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors shadow-sm">
                       Connect & Fetch
@@ -1004,7 +784,6 @@
                   </div>
                 </div>
 
-                {/* Right Column: Plant Registry */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-3">
@@ -1024,9 +803,7 @@
                   <p className="text-sm text-slate-500 mb-4">Map your sensor IDs to friendly plant names.</p>
                   
                   <div className="space-y-3 mb-6 max-h-[220px] overflow-y-auto pr-2">
-                    {configuredPlants.length === 0 && (
-                      <p className="text-sm text-slate-400 italic">No plants added yet.</p>
-                    )}
+                    {configuredPlants.length === 0 && <p className="text-sm text-slate-400 italic">No plants added yet.</p>}
                     {configuredPlants.map(p => (
                       <div key={p.id} className="flex items-center justify-between bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-600">
                         <div>
@@ -1054,32 +831,22 @@
                     </button>
                   </div>
                 </div>
-
               </div>
             </div>
           )}
 
-          {/* Main Content Area */}
           <main className="max-w-6xl mx-auto">
-            
-            {/* Error State */}
             {error && (
               <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 rounded-r-xl flex items-start gap-3">
                 <Icons.AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <div>
                   <h3 className="font-bold">Connection Failed</h3>
                   <p className="text-sm mt-1">{error}</p>
-                  <button 
-                    onClick={() => setShowSettings(true)}
-                    className="mt-3 text-sm font-semibold underline hover:text-red-800 dark:hover:text-red-300"
-                  >
-                    Check Settings
-                  </button>
+                  <button onClick={() => setShowSettings(true)} className="mt-3 text-sm font-semibold underline hover:text-red-800 dark:hover:text-red-300">Check Settings</button>
                 </div>
               </div>
             )}
 
-            {/* Loading State (Initial) */}
             {loading && configuredPlants.length === 0 && !error && (
               <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                 <Icons.RefreshCw className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
@@ -1087,18 +854,14 @@
               </div>
             )}
 
-            {/* Empty State */}
             {!loading && configuredPlants.length === 0 && !error && (
               <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <Icons.Leaf className="w-16 h-16 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
                 <h3 className="text-xl font-bold mb-2">No plants configured</h3>
-                <p className="text-slate-500 max-w-md mx-auto">
-                  Open settings to register your plant sensor IDs and names.
-                </p>
+                <p className="text-slate-500 max-w-md mx-auto">Open settings to register your plant sensor IDs and names.</p>
               </div>
             )}
 
-            {/* Dynamic Content Grid (Dashboard vs Graphs) */}
             {configuredPlants.length > 0 && (
               <>
                 <div className="flex justify-between items-center mb-6 px-2">
@@ -1116,25 +879,15 @@
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {configuredPlants.map(plantConfig => (
                     activeTab === 'dashboard' ? (
-                      <PlantCard 
-                        key={plantConfig.id} 
-                        plantConfig={plantConfig} 
-                        reading={readings[plantConfig.id]} 
-                      />
+                      <PlantCard key={plantConfig.id} plantConfig={plantConfig} reading={readings[plantConfig.id]} />
                     ) : (
-                      <GraphCard 
-                        key={plantConfig.id}
-                        plantConfig={plantConfig}
-                        history={history[plantConfig.id] || []}
-                        timeRangeMs={getTimeScaleMs()}
-                      />
+                      <GraphCard key={plantConfig.id} plantConfig={plantConfig} history={history[plantConfig.id] || []} timeRangeMs={getTimeScaleMs()} />
                     )
                   ))}
                 </div>
               </>
             )}
           </main>
-          
         </div>
       );
     }
@@ -1144,3 +897,9 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+```
