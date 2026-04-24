@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,11 +9,11 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- React & ReactDOM (UMD versions for browser) -->
+  <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
-  <!-- Babel (to compile JSX in the browser) -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans">
@@ -22,7 +23,7 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback, useMemo } = React;
 
-    // --- SVG Icons (Replacing lucide-react for standalone HTML) ---
+    // --- SVG Icons ---
     const Icon = ({ paths, className = "w-5 h-5", fill = "none" }) => (
       <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: paths }} />
     );
@@ -68,11 +69,9 @@
       );
     };
 
-    // Helper to safely parse all Supabase timestamp variations
     const parseSupabaseDate = (dateStr) => {
       if (!dateStr) return Date.now();
       let s = dateStr.replace(' ', 'T');
-      // Fix missing colons in timezone offsets (e.g., +00 instead of +00:00)
       if (s.endsWith('+00')) {
         s = s.slice(0, -3) + 'Z';
       } else if (!s.endsWith('Z') && !s.match(/[+-]\d{2}:?\d{2}$/)) {
@@ -85,10 +84,6 @@
     const SimpleLineChart = ({ data, timeRangeMs }) => {
       const chartId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
 
-      const maxTime = Date.now();
-      const minTime = maxTime - timeRangeMs;
-
-      // Sort data chronologically
       const sortedData = [...(data || [])].sort((a, b) => parseSupabaseDate(a.updated_at) - parseSupabaseDate(b.updated_at));
 
       if (sortedData.length === 0) {
@@ -99,10 +94,12 @@
         );
       }
 
+      const maxTime = Date.now();
+      const minTime = maxTime - timeRangeMs;
+
       let validPoints = [];
       let lastBeforeStart = null;
 
-      // Categorize points to find what falls inside our strict time window
       sortedData.forEach(d => {
         const t = parseSupabaseDate(d.updated_at);
         const val = Math.max(0, Math.min(100, d.moisture));
@@ -116,35 +113,28 @@
       let chartPoints = [];
 
       if (validPoints.length === 0) {
-        // If we have no data in the time window, but we have an older point, draw a flat line
         if (lastBeforeStart) {
           chartPoints = [
             { x: 0, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val },
             { x: 100, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val }
           ];
         } else {
-          // Future data edge case fallback
-          const val = Math.max(0, Math.min(100, sortedData[0].moisture));
-          chartPoints = [
-            { x: 0, y: 100 - val, val },
-            { x: 100, y: 100 - val, val }
-          ];
+          return (
+            <div className="w-full h-48 mt-4 flex items-center justify-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+              NaN
+            </div>
+          );
         }
       } else {
-        // Start padding: anchor to the left (0%)
         if (lastBeforeStart) {
           chartPoints.push({ x: 0, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val });
-        } else {
-          chartPoints.push({ x: 0, y: 100 - validPoints[0].val, val: validPoints[0].val });
         }
 
-        // Plot valid points exactly where they fall on the timeline percentage
         validPoints.forEach(p => {
           const x = ((p.t - minTime) / timeRangeMs) * 100;
           chartPoints.push({ x, y: 100 - p.val, val: p.val });
         });
 
-        // End padding: stretch the last known value to "Now" (100%)
         const lastVal = validPoints[validPoints.length - 1].val;
         chartPoints.push({ x: 100, y: 100 - lastVal, val: lastVal });
       }
@@ -152,7 +142,6 @@
       let pathString = `M ${chartPoints[0].x},${chartPoints[0].y} ` + chartPoints.map(p => `L ${p.x},${p.y}`).join(' ');
       let fillString = `M ${chartPoints[0].x},100 L ${chartPoints[0].x},${chartPoints[0].y} ` + chartPoints.map(p => `L ${p.x},${p.y}`).join(' ') + ` L ${chartPoints[chartPoints.length-1].x},100 Z`;
 
-      // Determine colors based on thresholds
       const getColor = (v) => v < 30 ? '#ef4444' : v > 80 ? '#3b82f6' : '#10b981';
       const getFill = (v) => v < 30 ? 'rgba(239, 68, 68, 0.25)' : v > 80 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)';
 
@@ -162,6 +151,245 @@
           return d.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         } else {
           return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      };
+
+      return (
+        <div className="relative w-full mt-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl overflow-hidden flex flex-col">
+          <div className="relative w-full h-48">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-1">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+              <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+            </div>
+            
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pb-1">
+              <defs>
+                <linearGradient id={`line-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+                  {chartPoints.map((p, i) => <stop key={`l-${i}`} offset={`${p.x}%`} stopColor={getColor(p.val)} />)}
+                </linearGradient>
+                <linearGradient id={`fill-gradient-${chartId}`} x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+                  {chartPoints.map((p, i) => <stop key={`f-${i}`} offset={`${p.x}%`} stopColor={getFill(p.val)} />)}
+                </linearGradient>
+              </defs>
+              <path d={fillString} fill={`url(#fill-gradient-${chartId})`} />
+              <path d={pathString} fill="none" stroke={`url(#line-gradient-${chartId})`} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+            </svg>
+            
+            <div className="absolute top-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded shadow-sm">100%</div>
+            <div className="absolute bottom-1 left-2 text-[10px] text-slate-400 font-medium bg-slate-50/80 dark:bg-slate-900/80 px-1 rounded shadow-sm">0%</div>
+          </div>
+          
+          <div className="flex justify-between items-center px-2 pb-2 pt-1 text-[10px] text-slate-400 font-medium border-t border-slate-200/50 dark:border-slate-700/50">
+            <span>{formatTimeAxis(minTime)}</span>
+            <span>{formatTimeAxis(minTime + timeRangeMs / 2)}</span>
+            <span>Now</span>
+          </div>
+        </div>
+      );
+    };
+
+    const GraphCard = ({ plantConfig, history, timeRangeMs }) => {
+      const latest = history && history.length > 0 ? history[history.length - 1] : null;
+
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <Icons.Leaf className="w-5 h-5 text-emerald-500" />
+              {plantConfig.name}
+            </h3>
+            {latest && (
+              <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                {latest.moisture.toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Moisture History</p>
+          <SimpleLineChart data={history} timeRangeMs={timeRangeMs} />
+        </div>
+      );
+    };
+
+    const PlantCard = ({ plantConfig, reading }) => {
+      if (!reading) {
+        return (
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 opacity-70">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Icons.Leaf className="w-5 h-5 text-slate-400" />
+                  {plantConfig.name}
+                </h3>
+                <p className="text-sm font-medium px-2 py-1 rounded-full mt-2 inline-block bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                  Waiting for data...
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-center my-6">
+              <CircularProgress value={0} color="text-slate-300" />
+            </div>
+            <div className="text-center text-sm text-slate-500 mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
+              Ensure device ID <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{plantConfig.id}</code> is sending data.
+            </div>
+          </div>
+        );
+      }
+
+      let statusColor = 'text-green-500';
+      let bgColor = 'bg-green-100 dark:bg-green-900/30';
+      let statusText = 'Optimal';
+
+      if (reading.moisture < 30) {
+        statusColor = 'text-red-500';
+        bgColor = 'bg-red-100 dark:bg-red-900/30';
+        statusText = 'Needs Water';
+      } else if (reading.moisture > 80) {
+        statusColor = 'text-blue-500';
+        bgColor = 'bg-blue-100 dark:bg-blue-900/30';
+        statusText = 'Overwatered';
+      }
+
+      const timeAgo = (dateString) => {
+        if (!dateString) return 'Unknown';
+        const date = parseSupabaseDate(dateString);
+        const now = Date.now();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return `${seconds}s ago`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        return `${Math.floor(seconds / 3600)}h ago`;
+      };
+
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <Icons.Leaf className="w-5 h-5 text-emerald-500" />
+                {plantConfig.name}
+              </h3>
+              <p className={`text-sm font-medium px-2 py-1 rounded-full mt-2 inline-block ${bgColor} ${statusColor}`}>
+                {statusText}
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="flex items-center text-slate-400 text-xs gap-1 justify-end">
+                <Icons.Clock className="w-3 h-3" />
+                <span>{timeAgo(reading.updated_at)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center my-6">
+            <CircularProgress value={reading.moisture} color={statusColor} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-500">
+                <Icons.Droplet className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sensor Value</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">{reading.moisture.toFixed(1)}%</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500">
+                <Icons.Thermometer className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Temp (est)</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">
+                  {reading.temperature ? `${reading.temperature}°C` : '--'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Main Application ---
+
+    function App() {
+      const [isSimulated, setIsSimulated] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [timeScale, setTimeScale] = useState('24h'); 
+      
+      const [readings, setReadings] = useState({});
+      const [history, setHistory] = useState({}); 
+      
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [lastFetch, setLastFetch] = useState(null);
+
+      const [configuredPlants, setConfiguredPlants] = useState([
+        { id: '1', name: 'Monstera Deliciosa' },
+        { id: '2', name: 'Fiddle Leaf Fig' },
+        { id: '3', name: 'Snake Plant' },
+        { id: '4', name: 'Pothos' }
+      ]);
+      const [newPlantId, setNewPlantId] = useState('');
+      const [newPlantName, setNewPlantName] = useState('');
+
+      useEffect(() => {
+        const loadDefaultConfig = async () => {
+          const cached = localStorage.getItem('plantConfig');
+          if (cached) {
+            try {
+              const data = JSON.parse(cached);
+              if (Array.isArray(data) && data.length > 0) {
+                setConfiguredPlants(data);
+                return;
+              }
+            } catch(e) { console.error("Error parsing local storage config"); }
+          }
+          try {
+            const response = await fetch('plant_config.json');
+            if (response.ok) {
+              const data = await response.json();
+              if (Array.isArray(data)) {
+                setConfiguredPlants(data);
+              }
+            }
+          } catch (err) {
+            console.log("No local plant_config.json found, using defaults.");
+          }
+        };
+        loadDefaultConfig();
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('plantConfig', JSON.stringify(configuredPlants));
+      }, [configuredPlants]);
+
+      const [config, setConfig] = useState({
+        url: 'https://hbrujdruzrjaaqbpjucp.supabase.co/',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhicnVqZHJ1enJqYWFxYnBqdWNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNDQ3ODMsImV4cCI6MjA4ODgyMDc4M30.ypjUq1IL3BdtrUW7OGE2HbKbY3t6O1c7xGShJF873PY',
+        tableName: 'sensor_data',
+        colId: 'plant_id',
+        colMoisture: 'moisture',
+        colTemp: 'temperature',
+        colDate: 'created_at',
+        pollingInterval: 5000 
+      });
+
+      const handleConfigChange = (e) => {
+        setConfig({ ...config, [e.target.name]: e.target.value });
+      };
+
+      const connectSupabase = () => {
+        if (!config.url || !config.anonKey || !config.tableName) {
+          setError("Please provide URL, Anon Key, and Table Name.");
+          return;
+        }
+        setIsSimulated(false);
+        setShowSettings(false);
+   
         }
       };
 
