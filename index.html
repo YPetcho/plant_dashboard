@@ -82,8 +82,11 @@
       return isNaN(d.getTime()) ? Date.now() : d.getTime();
     };
 
-    const SimpleLineChart = ({ data }) => {
+    const SimpleLineChart = ({ data, timeRangeMs }) => {
       const chartId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
+
+      const maxTime = Date.now();
+      const minTime = maxTime - timeRangeMs;
 
       // Sort data chronologically
       const sortedData = [...(data || [])].sort((a, b) => parseSupabaseDate(a.updated_at) - parseSupabaseDate(b.updated_at));
@@ -91,33 +94,59 @@
       if (sortedData.length === 0) {
         return (
           <div className="w-full h-48 mt-4 flex items-center justify-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-            No history available for this time period
+            NaN
           </div>
         );
       }
 
-      // Anchor graph exactly to the available data bounds to guarantee full width spanning
-      const minTime = parseSupabaseDate(sortedData[0].updated_at);
-      const maxTime = parseSupabaseDate(sortedData[sortedData.length - 1].updated_at);
-      const actualRangeMs = maxTime - minTime;
+      let validPoints = [];
+      let lastBeforeStart = null;
+
+      // Categorize points to find what falls inside our strict time window
+      sortedData.forEach(d => {
+        const t = parseSupabaseDate(d.updated_at);
+        const val = Math.max(0, Math.min(100, d.moisture));
+        if (t < minTime) {
+          lastBeforeStart = { t, val };
+        } else if (t <= maxTime) {
+          validPoints.push({ t, val });
+        }
+      });
 
       let chartPoints = [];
-      
-      // If there's only 1 point or all points occurred at the exact same millisecond, draw a flat line across
-      if (sortedData.length === 1 || actualRangeMs === 0) {
-        const val = Math.max(0, Math.min(100, sortedData[0].moisture));
-        chartPoints = [
-          { x: 0, y: 100 - val, val },
-          { x: 100, y: 100 - val, val }
-        ];
+
+      if (validPoints.length === 0) {
+        // If we have no data in the time window, but we have an older point, draw a flat line
+        if (lastBeforeStart) {
+          chartPoints = [
+            { x: 0, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val },
+            { x: 100, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val }
+          ];
+        } else {
+          // Future data edge case fallback
+          const val = Math.max(0, Math.min(100, sortedData[0].moisture));
+          chartPoints = [
+            { x: 0, y: 100 - val, val },
+            { x: 100, y: 100 - val, val }
+          ];
+        }
       } else {
-        // Map dynamically to ensure the line spans from exactly 0% width to 100% width
-        chartPoints = sortedData.map(d => {
-          const t = parseSupabaseDate(d.updated_at);
-          const x = ((t - minTime) / actualRangeMs) * 100;
-          const val = Math.max(0, Math.min(100, d.moisture)); // clamp to 0-100 limits
-          return { x, y: 100 - val, val };
+        // Start padding: anchor to the left (0%)
+        if (lastBeforeStart) {
+          chartPoints.push({ x: 0, y: 100 - lastBeforeStart.val, val: lastBeforeStart.val });
+        } else {
+          chartPoints.push({ x: 0, y: 100 - validPoints[0].val, val: validPoints[0].val });
+        }
+
+        // Plot valid points exactly where they fall on the timeline percentage
+        validPoints.forEach(p => {
+          const x = ((p.t - minTime) / timeRangeMs) * 100;
+          chartPoints.push({ x, y: 100 - p.val, val: p.val });
         });
+
+        // End padding: stretch the last known value to "Now" (100%)
+        const lastVal = validPoints[validPoints.length - 1].val;
+        chartPoints.push({ x: 100, y: 100 - lastVal, val: lastVal });
       }
 
       let pathString = `M ${chartPoints[0].x},${chartPoints[0].y} ` + chartPoints.map(p => `L ${p.x},${p.y}`).join(' ');
@@ -129,8 +158,7 @@
 
       const formatTimeAxis = (timestamp) => {
         const d = new Date(timestamp);
-        // If data spans more than 24 hours, show dates and times. Otherwise, just show time.
-        if (actualRangeMs > 24 * 60 * 60 * 1000) {
+        if (timeRangeMs > 24 * 60 * 60 * 1000) {
           return d.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         } else {
           return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -165,15 +193,15 @@
           </div>
           
           <div className="flex justify-between items-center px-2 pb-2 pt-1 text-[10px] text-slate-400 font-medium border-t border-slate-200/50 dark:border-slate-700/50">
-            <span>{actualRangeMs === 0 ? '' : formatTimeAxis(minTime)}</span>
-            <span>{actualRangeMs === 0 ? '' : formatTimeAxis(minTime + actualRangeMs / 2)}</span>
-            <span>{formatTimeAxis(maxTime)}</span>
+            <span>{formatTimeAxis(minTime)}</span>
+            <span>{formatTimeAxis(minTime + timeRangeMs / 2)}</span>
+            <span>Now</span>
           </div>
         </div>
       );
     };
 
-    const GraphCard = ({ plantConfig, history }) => {
+    const GraphCard = ({ plantConfig, history, timeRangeMs }) => {
       const latest = history && history.length > 0 ? history[history.length - 1] : null;
 
       return (
@@ -190,7 +218,7 @@
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Moisture History</p>
-          <SimpleLineChart data={history} />
+          <SimpleLineChart data={history} timeRangeMs={timeRangeMs} />
         </div>
       );
     };
@@ -392,6 +420,7 @@
 
       const getTimeScaleMs = useCallback(() => {
         switch(timeScale) {
+          case '5m': return 5 * 60 * 1000;
           case '1h': return 60 * 60 * 1000;
           case '24h': return 24 * 60 * 60 * 1000;
           case '7d': return 7 * 24 * 60 * 60 * 1000;
@@ -680,6 +709,7 @@
                   onChange={(e) => setTimeScale(e.target.value)}
                   className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500"
                 >
+                  <option value="5m">Last 5 Minutes</option>
                   <option value="1h">Last 1 Hour</option>
                   <option value="24h">Last 24 Hours</option>
                   <option value="7d">Last 7 Days</option>
@@ -868,6 +898,7 @@
                         key={plantConfig.id}
                         plantConfig={plantConfig}
                         history={history[plantConfig.id] || []}
+                        timeRangeMs={getTimeScaleMs()}
                       />
                     )
                   ))}
